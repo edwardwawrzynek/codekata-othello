@@ -165,4 +165,13 @@ class Tournament(val observeKey: String, val adminKey: String, val defaultPlayer
         val index = keys.indexOf(key)
         return if (index == -1) null else index
     }
+
+    fun getBoardsForKey(key: String): List<Board?> {
+        return if (key == observeKey) {
+            boards.toList()
+        }
+        else {
+            listOf(playerBoard[key])
+        }
+    }
 }

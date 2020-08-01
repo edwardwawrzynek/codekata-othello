@@ -1,6 +1,6 @@
 
 async function main() {
-    const board = await JSON.parse(await (await fetch(`/api/board?key="key0"`)).text());
+    const board = await JSON.parse(await (await fetch(`/api/board?key=observe0`)).text());
     console.log(board)
 }
 

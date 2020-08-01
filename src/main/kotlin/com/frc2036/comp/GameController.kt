@@ -11,22 +11,39 @@ import kotlin.random.Random
 @RestController
 @RequestMapping(value = ["/api"])
 class GameController {
-    private val tournament = Tournament(System.getenv()["SNAKE_OBSERVE_KEY"] ?: "observe0", System.getenv()["SNAKE_ADMIN_KEY"] ?: "admin0", System.getenv("SNAKE_NO_DEFAULT_KEYS") == null)
+    private val tournament = Tournament("observe0","admin0", true)
 
     @RequestMapping(value = ["/board"], method = [RequestMethod.GET], produces = ["application/json"])
     @Synchronized
     fun getBoard(@RequestParam key: String): String {
-        val board = tournament.playerBoard[key]
-        return if (board != null) {
-            "{\"error\": null, \"board\": ${board.contents.map { column ->
-                column.map { tile ->
-                    tile.type
+        val boards = tournament.getBoardsForKey(key)
+        if (boards.size == 1) {
+            val board = boards[0]
+            return if (board != null) {
+                "{\"error\": null, \"board\": ${board.contents.map { column ->
+                    column.map { tile ->
+                        tile.type
+                    }
                 }
+                }}"
+            } else {
+                "{\"error\": null, \"board\": null}"
             }
-            }}"
         }
         else {
-            "{\"error\":null, \"board\": null}"
+            // send all boards in tournament to observer
+            val boardStrings = mutableListOf<String>()
+            for (board in boards) {
+                if (board != null) {
+                    val boardString = "${board.contents.map { column ->
+                        column.map { tile ->
+                            tile.type
+                        }
+                    }}"
+                    boardStrings.add(boardString)
+                }
+            }
+            return "{\"error\": null, \"boards\": $boardStrings}"
         }
     }
 
@@ -44,12 +61,16 @@ class GameController {
     @RequestMapping(value = ["/move"], method = [RequestMethod.POST], produces = ["application/json"])
     @Synchronized
     fun makeMove(@RequestParam key: String, @RequestParam x: Int, @RequestParam y: Int): String {
-        val board = tournament.playerBoard[key]
+        if (key !in tournament.keys) {
+            return "{\"error\": \"must be a player to make a move\"}"
+        }
+
+        val board = tournament.getBoardsForKey(key)[0]
         var error: String? = "no active game"
         if (board != null) {
             error = board.putMove(key, x, y)
         }
-        return "\"error\": $error"
+        return "{\"error\": $error}"
     }
 
 }
