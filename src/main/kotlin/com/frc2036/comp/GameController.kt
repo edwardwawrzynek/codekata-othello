@@ -18,7 +18,7 @@ class GameController {
     fun getBoard(@RequestParam key: String): String {
         val boards = tournament.getBoardsForKey(key)
         if (boards.size == 1) {
-            val board = boards[0]
+            val board = boards[0]?.preparedFor(key)
             return if (board != null) {
                 "{\"error\": null, \"board\": ${board.contents.map { column ->
                     column.map { tile ->
@@ -77,6 +77,6 @@ class GameController {
         if (board != null) {
             error = board.putMove(key, x, y)
         }
-        return "{\"error\": $error}"
+        return "{\"error\": \"$error\"}"
     }
 }
