@@ -11,7 +11,7 @@ import kotlin.random.Random
 @RestController
 @RequestMapping(value = ["/api"])
 class GameController {
-    private val tournament = Tournament("observe0","admin0", true)
+    private val tournament = Tournament(1,"observe0","admin0", true)
 
     @RequestMapping(value = ["/board"], method = [RequestMethod.GET], produces = ["application/json"])
     @Synchronized
@@ -47,6 +47,13 @@ class GameController {
         }
     }
 
+    @RequestMapping(value = ["/move_needed"], method = [RequestMethod.GET], produces = ["application/json"])
+    @Synchronized
+    fun moveNeeded(@RequestParam key: String): String {
+        val needed = tournament.checkMoveNeeded(key)
+        return "{\"error\": null, \"needed\": $needed}"
+    }
+
     @RequestMapping(value = ["/set_name"], method = [RequestMethod.POST], produces = ["application/json"])
     @Synchronized
     fun setName(@RequestParam key: String, @RequestParam newName: String): String {
@@ -72,5 +79,4 @@ class GameController {
         }
         return "{\"error\": $error}"
     }
-
 }

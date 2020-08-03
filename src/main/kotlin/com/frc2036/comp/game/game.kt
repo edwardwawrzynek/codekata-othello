@@ -4,7 +4,6 @@ enum class TileType(val type: Int) {
     Empty(0),
     Player1(1),
     Player2(2)
-
 }
 
 enum class Direction(val dx: Int, val dy: Int) {
@@ -28,6 +27,8 @@ enum class Direction(val dx: Int, val dy: Int) {
     }
 }
 
+data class WLTRecord(var wins: Int, var losses: Int, var ties: Int)
+
 class Board() {
     // empty
     var contents = Array(8) { Array(8) { TileType.Empty } }
@@ -37,11 +38,32 @@ class Board() {
     var player1Key: String? = null
     var player2Key: String? = null
 
+    var lastPlayedPlayer: String? = null
+
+    var ended = false
+    var winner: String? = null
+    var loser: String? = null
+
     init {
         resetBoard()
     }
 
+    fun loadGame(game: Pair<String, String>) {
+        player1Key = game.first
+        player2Key = game.second
+    }
+
     fun resetBoard() {
+        // clear player information
+        player1Key = null
+        player2Key = null
+
+        lastPlayedPlayer = null
+
+        ended = false
+        winner = null
+        loser = null
+
         // create blank board
         contents = Array(8) { Array(8) { TileType.Empty } }
 
@@ -113,6 +135,44 @@ class Board() {
         return flippedTiles.isNotEmpty()
     }
 
+    fun getLegalMoves(playerKey: String): List<Pair<Int, Int>> {
+        val moves = mutableListOf<Pair<Int, Int>>()
+
+        // if the player exists, get their legal moves
+        if (playerKey == player1Key || playerKey == player2Key) {
+            contents.forEachIndexed { x, col ->
+                col.forEachIndexed { y, _ ->
+                    val move = Pair(x, y)
+                    if (checkLegal(playerKey, move)) moves.add(move)
+                }
+            }
+        }
+
+        return moves.toList()
+    }
+
+    fun checkMustForfeit(playerKey: String): Boolean = getLegalMoves(playerKey).isEmpty()
+
+    fun getNextPlayerKey(): String? {
+        var nextPlayer: String? = null
+        if (player1Key != null && player2Key != null) {
+            var player1MustForfeit = checkMustForfeit(player1Key!!)
+            var player2MustForfeit = checkMustForfeit(player2Key!!)
+
+            if ((lastPlayedPlayer == player2Key || lastPlayedPlayer == null) && !player1MustForfeit) {
+                nextPlayer = player1Key
+            }
+            else if (lastPlayedPlayer == player1Key && !player2MustForfeit) {
+                nextPlayer = player2Key
+            }
+            else { // both players must forfeit
+                endGame()
+            }
+        }
+
+        return nextPlayer
+    }
+
     fun flipTiles(tiles: List<Pair<Int, Int>>) {
         for (tile in tiles) {
             val x = tile.first
@@ -127,7 +187,6 @@ class Board() {
 
     fun putMove(player: String, x: Int, y: Int): String? {
         // TODO: ensure incoming moves are legal
-        // TODO: resolve move
         var type = TileType.Empty
         when (player) {
             player1Key -> type = TileType.Player1
@@ -145,19 +204,118 @@ class Board() {
         return error
     }
 
+    fun endGame() {
+        ended = true
+
+        // tally results
+        var p1Score = 0
+        var p2Score = 0
+        contents.forEachIndexed { _, col ->
+            col.forEachIndexed { _, cell ->
+                when (cell) {
+                    TileType.Player1 -> ++p1Score
+                    TileType.Player2 -> ++p2Score
+                }
+            }
+        }
+
+        winner = when {
+            p1Score > p2Score -> player1Key
+            p2Score > p1Score -> player2Key
+            else -> null
+        }
+        loser = when (winner) {
+            player2Key -> player1Key
+            player1Key -> player2Key
+            else -> null
+        }
+
+    }
+
 }
 
-class Tournament(val observeKey: String, val adminKey: String, val defaultPlayerKeys: Boolean) {
+class Tournament(val rounds: Int, val observeKey: String, val adminKey: String, val defaultPlayerKeys: Boolean) {
     val keys = if (defaultPlayerKeys) mutableListOf("key0", "key1", "key2", "key3") else mutableListOf("", "", "", "")
 
     // names of each of the players
     val names = mutableListOf("Player 0", "Player 1", "Player 2", "Player 3")
+
+    // win/loss/tie records
+    val records = mutableMapOf<String, WLTRecord>()
 
     // all boards
     val boards = Array(3) { Board() }
 
     // maps players (by api key) to the board they are playing on
     val playerBoard = mutableMapOf<String, Board>()
+
+    /* Game schedule represented by Pairs of API keys. In a round, each
+    player plays each other twice times, going first once. Number of games
+    equals P(number of AIs, 2) * rounds. With 4 players, this means each
+    round consists of 12 games.
+    I also may have done my math wrong and am just stupid.
+    */
+    val schedule = mutableListOf<Pair<String, String>>()
+    val completedGames = mutableListOf<Pair<String, String>>()
+
+    init {
+        // build records map from keys
+        for (p in names zip names.map { WLTRecord(0, 0, 0) }) {
+            records[p.first] = p.second
+        }
+
+        // build game schedule
+        for (player in keys) {
+            for (other in keys) {
+                if (player == other) continue
+                val matchUp = Pair(player, other)
+                for (i in 0 until rounds) schedule.add(matchUp)
+            }
+        }
+        schedule.shuffle()
+    }
+
+    fun playerIsIdle(key: String) = playerBoard[key] == null
+
+    fun checkMoveNeeded(key: String): Boolean {
+        var ret = false
+        if (playerBoard[key] != null) {
+            val board = playerBoard[key]!!
+            val nextPlayerKey = board.getNextPlayerKey()
+
+            if (nextPlayerKey != null && key == nextPlayerKey) {
+                ret = true
+            }
+            else if (board.ended) {
+                // TODO: double check non-null assertions
+                // TODO: separate this into 2 methods
+                if (board.winner != null && board.loser != null) {
+                    ++records[board.winner!!]!!.wins
+                    ++records[board.loser!!]!!.losses
+                }
+                else {
+                    ++records[board.player1Key!!]!!.ties
+                    ++records[board.player2Key!!]!!.ties
+                }
+
+                completedGames.add(Pair(board.player1Key!!, board.player2Key!!))
+                board.resetBoard()
+
+                // give this board to the next game
+                for (game in schedule) {
+                    /* skip this game if either player is idle or if the game
+                    has already been played. */
+                    if (game in completedGames) continue
+                    if (playerIsIdle(game.first) || playerIsIdle(game.second)) continue
+
+                    board.loadGame(game)
+                    break
+                }
+            }
+        }
+
+        return ret
+    }
 
     fun playerFromKey(key: String): Int? {
         if (key == "") return null
