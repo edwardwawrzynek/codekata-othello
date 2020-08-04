@@ -17,7 +17,7 @@ enum class Direction(val dx: Int, val dy: Int) {
     NorthEast(-1, -1),
     NorthWest(1, -1),
     SouthEast(-1, 1),
-    SouthWest(1, -1);
+    SouthWest(1, 1);
 
     fun from(point: Pair<Int, Int>): Pair<Int, Int> {
         val x = point.first + this.dx

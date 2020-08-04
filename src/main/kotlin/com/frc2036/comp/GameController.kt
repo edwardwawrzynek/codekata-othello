@@ -12,6 +12,9 @@ import kotlin.random.Random
 @RequestMapping(value = ["/api"])
 class GameController {
     private val tournament = Tournament(1,"observe0","admin0", true)
+    init {
+        tournament.updateActiveGames()
+    }
 
     @RequestMapping(value = ["/board"], method = [RequestMethod.GET], produces = ["application/json"])
     @Synchronized
@@ -53,8 +56,8 @@ class GameController {
                             if (board.player1Key != null && board.player2Key != null) {
                                 // TODO: replace cascade with when
                                 when (tile) {
-                                    TileType.Player1 -> tournament.keys.indexOf(board.player1Key!!)
-                                    TileType.Player2 -> tournament.keys.indexOf(board.player2Key!!)
+                                    TileType.Player1 -> tournament.keys.indexOf(board.player1Key!!) + 1
+                                    TileType.Player2 -> tournament.keys.indexOf(board.player2Key!!) + 1
                                     TileType.Empty -> 0
                                 }
                             } else 0
