@@ -22,12 +22,25 @@ class GameController {
             return if (board != null) {
                 "{\"error\": null, \"board\": ${board.contents.map { column ->
                     column.map { tile ->
-                        tile.type
+                        if (key == board.player1Key!!) {
+                            when (tile) {
+                                TileType.Player1 -> 1
+                                TileType.Player2 -> 2
+                                TileType.Empty -> 0
+                            }
+                        }
+                        else {
+                            when (tile) {
+                                TileType.Player1 -> 2
+                                TileType.Player2 -> 1
+                                TileType.Empty -> 0
+                            }
+                        }
                     }
                 }
                 }}"
             } else {
-                "{\"error\": null, \"board\": null}"
+                "{\"error\": \"no board found\", \"board\": null}"
             }
         }
         else {
@@ -37,7 +50,14 @@ class GameController {
                 if (board != null) {
                     val boardString = "${board.contents.map { column ->
                         column.map { tile ->
-                            tile.type
+                            if (board.player1Key != null && board.player2Key != null) {
+                                // TODO: replace cascade with when
+                                when (tile) {
+                                    TileType.Player1 -> tournament.keys.indexOf(board.player1Key!!)
+                                    TileType.Player2 -> tournament.keys.indexOf(board.player2Key!!)
+                                    TileType.Empty -> 0
+                                }
+                            } else 0
                         }
                     }}"
                     boardStrings.add(boardString)

@@ -1,21 +1,21 @@
 var canvas
 var ctx
-const colors = ["#FFFFFF", "#FF0000", "#0000FF"]
+const colors = ["#FFFFFF", "#FF2400", "#87CEEB", "#008000", "#ffbf00"]
 
-function drawBoard(board, ctx) {
+function drawBoard(left, top, board, ctx) {
     let cell_size = 32
 
     // draw axes
     for (var x = 0; x <= cell_size * 8; x += cell_size) {
         ctx.beginPath()
-        ctx.moveTo(x, 0)
-        ctx.lineTo(x, cell_size * 8)
+        ctx.moveTo(left + x, top)
+        ctx.lineTo(left + x, cell_size * 8 + top)
         ctx.stroke()
     }
     for (var y = 0; y <= cell_size * 8; y += cell_size) {
         ctx.beginPath()
-        ctx.moveTo(0, y)
-        ctx.lineTo(cell_size * 8, y)
+        ctx.moveTo(left, top + y)
+        ctx.lineTo(cell_size * 8 + left, top + y)
         ctx.stroke()
     }
 
@@ -23,7 +23,7 @@ function drawBoard(board, ctx) {
         col.forEach((tile, y) => {
             ctx.fillStyle = colors[tile]
             ctx.beginPath()
-            ctx.arc(x * cell_size + cell_size * 0.5, y * cell_size + cell_size * 0.5, cell_size * 0.3, 0, 2 * Math.PI)
+            ctx.arc(left + x * cell_size + cell_size * 0.5, top + y * cell_size + cell_size * 0.5, cell_size * 0.3, 0, 2 * Math.PI)
             ctx.fill()
         })
     })
@@ -31,8 +31,14 @@ function drawBoard(board, ctx) {
 }
 
 async function main(ctx) {
-    const boards = await JSON.parse(await (await fetch(`/api/board?key=observe0`)).text());
-    drawBoard(boards.boards[0], ctx)
+    const boards_response = await JSON.parse(await (await fetch(`/api/board?key=observe0`)).text());
+    const boards = boards_response.boards
+
+    console.log(boards[0])
+
+    for (var i = 0; i < boards.length; ++i) {
+        drawBoard(i * 32 * 9, 0, boards[i], ctx)
+    }
 }
 
 window.onload = () => {

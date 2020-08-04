@@ -48,11 +48,13 @@ class Board() {
         resetBoard()
     }
 
+    // load a game by assigning player keys
     fun loadGame(game: Pair<String, String>) {
         player1Key = game.first
         player2Key = game.second
     }
 
+    // reset the board so that it is ready for another game
     fun resetBoard() {
         // clear player information
         player1Key = null
@@ -80,15 +82,19 @@ class Board() {
         }
     }
 
+    // check if a value is in the boundaries of the board (8x8)
     fun inbounds(value: Int): Boolean {
         return (value in 0 until 8)
     }
 
+    // get the tile at position pos
     fun getTileAt(pos: Pair<Int, Int>): TileType {
         return contents[pos.first][pos.second]
     }
 
+    // determine flipped tiles in all 8 directions given move (x, y) by player playerKey
     fun getFlippedTiles(playerKey: String, x: Int, y: Int): List<Pair<Int, Int>> {
+        // determine the tile types of the player and opponent
         val player = when (playerKey) {
             player1Key -> TileType.Player1
             player2Key -> TileType.Player2
@@ -103,29 +109,34 @@ class Board() {
         val flippedTiles = mutableListOf<Pair<Int, Int>>()
 
         if (player != null && opponent != null) {
-            // find first friendly stone in each direction
+            // find stones between this stone and next friendly stone in each direction
             for (direction in Direction.values()) {
                 var first = true
                 var focus = Pair(x, y)
                 var foundEnd = false
                 val path = mutableListOf<Pair<Int, Int>>()
 
+                // find path
                 while (getTileAt(focus) == opponent || first) {
                     first = false
 
+                    // change focus in the direction
                     focus = direction.from(focus)
 
+                    // ensure that the focus is on the board
                     if (!inbounds(focus.first) || !inbounds(focus.second)) break
 
+                    // if it's an endpoint, end the path. If it's an opponent piece, add it
                     if (getTileAt(focus) == player) {
                         foundEnd = true
                         break
                     }
-                    else {
+                    else if (getTileAt(focus) == opponent) {
                         path.add(focus.copy())
                     }
                 }
 
+                // if the path ended, add it to flippedTiles
                 if (foundEnd) flippedTiles.addAll(path)
             }
         }
@@ -133,11 +144,14 @@ class Board() {
         return flippedTiles.toList()
     }
 
+    // check if a move is legal
     fun checkLegal(key: String, move: Pair<Int, Int>): Boolean {
+        if (getTileAt(move) != TileType.Empty) return false
         val flippedTiles = getFlippedTiles(key, move.first, move.second)
         return flippedTiles.isNotEmpty()
     }
 
+    // get all moves that are legal
     fun getLegalMoves(playerKey: String): List<Pair<Int, Int>> {
         val moves = mutableListOf<Pair<Int, Int>>()
 
@@ -154,8 +168,10 @@ class Board() {
         return moves.toList()
     }
 
+    // check if a player must forfeit their turn because they have no legal moves
     fun checkMustForfeit(playerKey: String): Boolean = getLegalMoves(playerKey).isEmpty()
 
+    // determine whose turn it is
     fun getNextPlayerKey(): String? {
         var nextPlayer: String? = null
 
@@ -183,6 +199,7 @@ class Board() {
         return nextPlayer
     }
 
+    // change contents to flip tiles
     fun flipTiles(tiles: List<Pair<Int, Int>>) {
         for (tile in tiles) {
             val x = tile.first
@@ -195,6 +212,7 @@ class Board() {
         }
     }
 
+    // put a move on the board by player at (x, y) and resolve effects
     fun putMove(player: String, x: Int, y: Int): String? {
         // TODO: ensure incoming moves are legal
         var type = TileType.Empty
@@ -215,6 +233,7 @@ class Board() {
         return error
     }
 
+    // end the game because both players must forfeit their turn
     fun endGame() {
         ended = true
 
@@ -243,9 +262,11 @@ class Board() {
 
     }
 
+    // create a new board that is prepared for player key
     fun preparedFor(key: String): Board {
         val newBoard = Board()
         newBoard.contents = contents.clone()
+        newBoard.loadGame(player1Key!! to player2Key!!)
 
         val player = when (key) {
             player1Key -> TileType.Player1
@@ -264,6 +285,19 @@ class Board() {
                     if (cell == player) newBoard.contents[x][y] = TileType.Player1
                     else if (cell == opponent) newBoard.contents[x][y] = TileType.Player2
                 }
+            }
+        }
+
+        return newBoard.withReversedAxes()
+    }
+
+    // reverse the axes to fix JSON serialization
+    fun withReversedAxes(): Board {
+        val newBoard = Board()
+        newBoard.loadGame(player1Key!! to player2Key!!)
+        contents.forEachIndexed { x, col ->
+            col.forEachIndexed { y, cell ->
+                newBoard.contents[y][x] = cell
             }
         }
 
@@ -317,8 +351,10 @@ class Tournament(val rounds: Int, val observeKey: String, val adminKey: String, 
         for (key in keys) playerBoard[key] = null
     }
 
+    // check if a player is in a game
     fun playerIsIdle(key: String) = playerBoard[key] == null
 
+    // assign games to boards when possible
     fun updateActiveGames() {
         for (board in boards) {
             // give this board to the next game
@@ -337,6 +373,7 @@ class Tournament(val rounds: Int, val observeKey: String, val adminKey: String, 
         }
     }
 
+    // return if player `key` needs to submit a move
     fun checkMoveNeeded(key: String): Boolean {
         updateActiveGames()
 
@@ -346,7 +383,7 @@ class Tournament(val rounds: Int, val observeKey: String, val adminKey: String, 
 
             if (key == nextPlayerKey) {
                 return true
-            } else if (board.ended) {
+            } else if (board.ended) { // Note: this block isn't complete and has bugs
                 // TODO: double check non-null assertions
                 // TODO: separate this into 2 methods
                 if (board.winner != null && board.loser != null) {
@@ -364,6 +401,7 @@ class Tournament(val rounds: Int, val observeKey: String, val adminKey: String, 
         return false
     }
 
+    // get the index of the player with key `key`
     fun playerFromKey(key: String): Int? {
         if (key == "") return null
 
@@ -371,12 +409,13 @@ class Tournament(val rounds: Int, val observeKey: String, val adminKey: String, 
         return if (index == -1) null else index
     }
 
+    // get the active board(s) for `key`.
     fun getBoardsForKey(key: String): List<Board?> {
-        return if (key == observeKey) {
+        return if (key == observeKey) { // return all if request is from observer
             boards.toList()
         }
         else {
-            listOf(playerBoard[key])
+            listOf(playerBoard[key]) // otherwise, return the games the player is in
         }
     }
 }
