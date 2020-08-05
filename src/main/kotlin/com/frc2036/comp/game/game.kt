@@ -264,31 +264,10 @@ class Board() {
 
     // create a new board that is prepared for player key
     fun preparedFor(key: String): Board {
-        val newBoard = Board()
-        newBoard.contents = contents.clone()
+        val newBoard = withReversedAxes()
         newBoard.loadGame(player1Key!! to player2Key!!)
 
-        val player = when (key) {
-            player1Key -> TileType.Player1
-            player2Key -> TileType.Player2
-            else -> null
-        }
-        val opponent = when (player) {
-            TileType.Player1 -> TileType.Player2
-            TileType.Player2 -> TileType.Player1
-            else -> null
-        }
-
-        if (player == TileType.Player2) {
-            contents.forEachIndexed { x, col ->
-                col.forEachIndexed { y, cell ->
-                    if (cell == player) newBoard.contents[x][y] = TileType.Player1
-                    else if (cell == opponent) newBoard.contents[x][y] = TileType.Player2
-                }
-            }
-        }
-
-        return newBoard.withReversedAxes()
+        return newBoard
     }
 
     // reverse the axes to fix JSON serialization
